@@ -1,0 +1,8 @@
+/*
+  App.css — intentionally empty for Module 1.
+
+  All component styles live in index.css using plain class names.
+  We keep this file so Vite does not complain about the import,
+  and so there is a clear place to add app-level overrides later
+  without touching the global stylesheet.
+*/

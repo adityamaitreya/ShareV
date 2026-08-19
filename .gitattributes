@@ -1,0 +1,16 @@
+# Normalise line endings to LF in the repository on all platforms.
+# This prevents the CRLF/LF warning noise on Windows and ensures
+# everyone on the team gets consistent line endings regardless of OS.
+
+* text=auto eol=lf
+
+# Force binary files to never be touched
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.webp binary
+*.svg  binary
+*.ico  binary
+*.pdf  binary
+*.zip  binary

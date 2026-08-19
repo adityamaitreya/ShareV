@@ -1,0 +1,471 @@
+# ShareV — Development Roadmap
+
+This document is the single source of truth for the project plan.
+Each module is self-contained and testable before the next one begins.
+
+---
+
+## Legend
+
+| Symbol | Meaning |
+|--------|---------|
+| ✅ | Complete |
+| 🔄 | In progress |
+| ⏳ | Not started |
+| 🔒 | Blocked by a previous module |
+
+---
+
+## Module Overview
+
+| # | Title | Layer | Status |
+|---|-------|-------|--------|
+| 1 | React Frontend Shell | Frontend | ✅ |
+| 2 | File Selection & Client-Side Validation | Frontend | ✅ |
+| 3 | AWS Account & IAM Setup | Cloud infra | ✅ |
+| 4 | S3 Bucket Setup | Cloud infra | ⏳ |
+| 5 | DynamoDB Table Setup | Cloud infra | ⏳ |
+| 6 | Upload Lambda | Backend | 🔒 |
+| 7 | API Gateway — Upload Route | Backend | 🔒 |
+| 8 | Retrieve Lambda | Backend | 🔒 |
+| 9 | API Gateway — Retrieve Route | Backend | 🔒 |
+| 10 | Connect Frontend to Backend | Frontend + Backend | 🔒 |
+| 11 | File Expiry & Cleanup | Backend | 🔒 |
+| 12 | CloudFront & Production Deployment | DevOps | 🔒 |
+| 13 | Monitoring & Logging | DevOps | 🔒 |
+| 14 | WebRTC Peer-to-Peer (Optional) | Frontend + Backend | 🔒 |
+
+---
+
+## Detailed Module Plans
+
+---
+
+### ✅ Module 1 — React Frontend Shell
+
+**Goal:** Build the complete UI skeleton. No backend. All behaviour is mocked.
+
+**What you learn:**
+- React project structure with Vite
+- Components, JSX, props
+- `useState` and `useRef`
+- React Router (BrowserRouter, Routes, Route)
+- CSS custom properties as a design system
+- Responsive layout with CSS Grid and media queries
+- Dark mode with `prefers-color-scheme`
+
+**Steps completed:**
+1. Scaffolded Vite + React project
+2. Installed `react-router-dom`
+3. Created page and component folder structure
+4. Built `Header`, `FileUpload`, `CodeEntry`, `Footer` components
+5. Built `Home` page composing all components
+6. Written full CSS design system in `index.css`
+7. Updated `index.html` title and meta description
+8. Verified production build passes
+
+**Test:** `npm run dev` → verify upload zone, mock code generation, mock code lookup (try `DEMO12` and `EXPIRY`), dark mode, mobile layout.
+
+---
+
+### ✅ Module 2 — File Selection & Client-Side Validation
+
+**Goal:** Add real file validation in the browser. No server involved.
+
+**What you learn:**
+- MIME types and why they are more reliable than file extensions
+- Separation of concerns: logic vs UI
+- Derived state vs stored state
+- Accessible error announcements (`aria-live`, `role="alert"`)
+- Event bubbling and `stopPropagation()`
+
+**Steps completed:**
+1. Created `src/utils/fileValidation.js` with all rules and helpers
+2. Defined `ALLOWED_TYPES` Map and `ACCEPT_STRING`
+3. Implemented `validateFile()` returning `{ valid, error?, hint? }`
+4. Added `formatBytes()`, `getFileIcon()`, `getReadableType()` helpers
+5. Rewrote `FileUpload.jsx` with `processFile()` centralising validation
+6. Added `validationError` state and error banner component
+7. Implemented `dropzoneClass()` derived CSS modifier logic
+8. Fixed `dragLeave` flicker with `contains()` check
+9. Added validation CSS classes to `index.css`
+10. Verified production build passes
+
+**Allowed file types:** Images (JPEG, PNG, GIF, WebP, SVG), PDF, Word (.doc/.docx), Excel (.xls/.xlsx), plain text, HTML, CSS, JavaScript, TypeScript, JSON, XML, CSV, ZIP, TAR, GZip.
+
+**Size limit:** 25 MB
+
+**Test:**
+- Pick a valid file → drop zone turns purple, Upload button enables
+- Pick an `.exe` → red border, error banner, button stays disabled
+- Pick a file over 25 MB → size error with exact size shown
+- Drag-and-drop a valid file → teal border while dragging, purple after drop
+- Remove file with ✕ → resets completely
+
+---
+
+### ✅ Module 3 — AWS Account & IAM Setup
+
+**Goal:** Create the AWS account and configure secure credentials. No resources deployed yet.
+
+**What you learned:**
+- AWS account structure (root vs IAM users)
+- Why you never use root credentials for day-to-day work
+- IAM: users, groups, roles, policies
+- Principle of least privilege
+- AWS CLI installation and credential configuration
+- Environment variables for secrets (never hardcode keys)
+
+**Steps completed:**
+1. Created AWS account
+2. Enabled MFA (multi-factor authentication) on the root account
+3. Created IAM user `sharev-dev` with programmatic access
+4. Attached a custom policy scoped to S3, DynamoDB, Lambda, and API Gateway permissions
+5. Installed AWS CLI v2
+6. Ran `aws configure` with the IAM user credentials
+7. Verified with `aws sts get-caller-identity`
+8. Credentials stored securely — not committed to the repository
+
+**Deliverable:** ✅ `aws sts get-caller-identity` returns account ID without error. AWS CLI is authenticated and ready.
+
+---
+
+### ⏳ Module 4 — S3 Bucket Setup
+
+**Depends on:** Module 3
+
+**Goal:** Create the S3 bucket that will store uploaded files. No public access.
+
+**What you learn:**
+- S3 buckets and objects
+- Why you never make a storage bucket fully public
+- Bucket policies vs ACLs
+- CORS — what it is and why the browser needs it configured
+- Server-side encryption at rest
+
+**Steps to complete:**
+1. Create bucket `sharev-files-{your-account-id}` in your chosen region
+2. Block all public access (the default — keep it)
+3. Enable server-side encryption (SSE-S3)
+4. Add a bucket policy allowing only your Lambda role to read/write
+5. Configure CORS so the browser can receive pre-signed URL responses
+6. Test by uploading a file with the AWS CLI: `aws s3 cp test.txt s3://your-bucket/`
+
+**Deliverable:** File uploads and downloads via the AWS CLI work. Direct browser access returns `AccessDenied`.
+
+---
+
+### ⏳ Module 5 — DynamoDB Table Setup
+
+**Depends on:** Module 3
+
+**Goal:** Create the DynamoDB table that stores access codes and metadata.
+
+**What you learn:**
+- DynamoDB: tables, items, attributes
+- How NoSQL differs from SQL (no fixed schema, key-based access)
+- Primary keys (partition key)
+- TTL (Time To Live) — automatic record deletion after expiry
+
+**Steps to complete:**
+1. Create table `sharev-files` with partition key `accessCode` (String)
+2. Enable TTL on attribute `expiresAt`
+3. Test by writing and reading a record with the AWS CLI
+
+**Table schema:**
+```
+accessCode   (String, PK)   — the 6-char code e.g. "AB12CD"
+s3Key        (String)       — path to the file in S3
+contentType  (String)       — MIME type of the file
+fileName     (String)       — original file name
+fileSize     (Number)       — bytes
+expiresAt    (Number)       — Unix timestamp, TTL attribute
+createdAt    (String)       — ISO date string
+```
+
+**Deliverable:** `aws dynamodb get-item` returns a test record. After the TTL timestamp passes, the item is automatically deleted.
+
+---
+
+### ⏳ Module 6 — Upload Lambda
+
+**Depends on:** Modules 4 and 5
+
+**Goal:** Write the Lambda function that receives a file, stores it in S3, saves metadata to DynamoDB, and returns an access code.
+
+**What you learn:**
+- Lambda function structure (handler, event, context)
+- AWS SDK v3 (modular, tree-shakeable)
+- Generating cryptographically random access codes
+- Environment variables in Lambda
+- Error handling and HTTP status codes
+
+**Steps to complete:**
+1. Create `backend/functions/upload/handler.js`
+2. Accept `multipart/form-data` from API Gateway
+3. Generate a unique 6-char alphanumeric code
+4. Upload the file buffer to S3
+5. Write metadata to DynamoDB with `expiresAt = now + 24 hours`
+6. Return `{ accessCode, expiresAt }` with status 200
+7. Test locally with a mock event object
+8. Deploy to Lambda via AWS CLI
+
+**Deliverable:** Invoking the Lambda with a test event returns a valid access code and the file appears in S3.
+
+---
+
+### ⏳ Module 7 — API Gateway — Upload Route
+
+**Depends on:** Module 6
+
+**Goal:** Expose the upload Lambda as an HTTP endpoint.
+
+**What you learn:**
+- REST API vs HTTP API in API Gateway
+- `POST /upload` route configuration
+- Payload size limits (increase to 25 MB for file uploads)
+- CORS headers at the API Gateway level
+- Stages and deployments
+
+**Steps to complete:**
+1. Create an HTTP API in API Gateway
+2. Add route `POST /upload` → Upload Lambda integration
+3. Set payload limit to 26 MB
+4. Configure CORS to allow the frontend origin
+5. Deploy to a `dev` stage
+6. Test with Postman or curl
+
+**Deliverable:** `curl -X POST https://{api-id}.execute-api.{region}.amazonaws.com/dev/upload -F "file=@test.pdf"` returns a JSON access code.
+
+---
+
+### ⏳ Module 8 — Retrieve Lambda
+
+**Depends on:** Modules 4 and 5
+
+**Goal:** Write the Lambda that looks up an access code and returns a secure pre-signed download URL.
+
+**What you learn:**
+- DynamoDB `GetItem` operation
+- Checking TTL / expiry manually (TTL deletion is not instant)
+- Pre-signed S3 URLs — what they are and why they're the right tool
+- Returning different HTTP status codes (200, 404, 410 Gone)
+
+**Steps to complete:**
+1. Create `backend/functions/retrieve/handler.js`
+2. Read `accessCode` from the path parameter
+3. Look up the code in DynamoDB
+4. If not found → return 404
+5. If `expiresAt` is in the past → return 410 (Gone)
+6. Generate a pre-signed S3 URL valid for 15 minutes
+7. Return `{ url, fileName, fileSize, contentType, expiresAt }`
+8. Deploy to Lambda
+
+**Deliverable:** Invoking the Lambda with a real access code returns a pre-signed URL that downloads the correct file.
+
+---
+
+### ⏳ Module 9 — API Gateway — Retrieve Route
+
+**Depends on:** Module 8
+
+**Goal:** Expose the retrieve Lambda as an HTTP endpoint.
+
+**What you learn:**
+- Path parameters in API Gateway (`GET /retrieve/{code}`)
+- Connecting multiple routes to one API
+- Testing with real codes from Module 7
+
+**Steps to complete:**
+1. Add route `GET /retrieve/{code}` to the existing API
+2. Integrate with Retrieve Lambda
+3. Deploy updated `dev` stage
+4. End-to-end test: upload a file via Module 7 endpoint, retrieve it via Module 9 endpoint
+
+**Deliverable:** Full upload → retrieve cycle works entirely through HTTP with no AWS Console interaction.
+
+---
+
+### ⏳ Module 10 — Connect Frontend to Backend
+
+**Depends on:** Modules 7 and 9
+
+**Goal:** Replace all mock behaviour in the React app with real API calls.
+
+**What you learn:**
+- `fetch` API and async/await
+- FormData for sending files from the browser
+- Environment variables in Vite (`import.meta.env.VITE_*`)
+- Handling loading, success, and error states for real network calls
+- Showing pre-signed URL file previews inline
+
+**Steps to complete:**
+1. Create `src/services/api.js` — all fetch calls in one place
+2. Add `.env.local` with `VITE_API_BASE_URL=https://your-api-id.execute-api...`
+3. Replace mock `handleUpload` in `FileUpload.jsx` with real `uploadFile()` call
+4. Replace mock `handleAccess` in `CodeEntry.jsx` with real `retrieveFile()` call
+5. Handle network errors gracefully with user-facing messages
+6. Show a QR code for the generated access code (using a library)
+7. End-to-end test: upload from browser, receive on a different device
+
+**Deliverable:** A file uploaded in the browser can be downloaded by entering the code on another device.
+
+---
+
+### ⏳ Module 11 — File Expiry & Cleanup
+
+**Depends on:** Modules 4 and 5
+
+**Goal:** Make expiry automatic and clean up S3 storage to avoid paying for abandoned files.
+
+**What you learn:**
+- DynamoDB TTL behaviour and timing (deletion can lag up to 48 h)
+- S3 lifecycle rules
+- EventBridge scheduled rules (cron)
+- Optional cleanup Lambda
+
+**Steps to complete:**
+1. Confirm DynamoDB TTL is working (create a record with a 2-minute expiry, wait, verify it's gone)
+2. Add an S3 lifecycle rule to delete objects with prefix `uploads/` after 2 days
+3. (Optional) Create a cleanup Lambda triggered on a schedule to proactively delete expired S3 objects
+4. Verify the retrieve Lambda returns 410 for expired codes even before DynamoDB deletes them (check `expiresAt` manually)
+
+**Deliverable:** Expired access codes return 410. S3 objects are automatically deleted by lifecycle rules.
+
+---
+
+### ⏳ Module 12 — CloudFront & Production Deployment
+
+**Depends on:** Module 10
+
+**Goal:** Deploy the React app to S3 + CloudFront for fast, globally distributed, HTTPS delivery.
+
+**What you learn:**
+- Static site hosting on S3
+- CloudFront distributions, origins, and behaviours
+- Cache invalidation after a new deployment
+- HTTPS with ACM (AWS Certificate Manager) — free certificates
+- Custom domain setup (optional)
+
+**Steps to complete:**
+1. Create an S3 bucket for the frontend (separate from the file storage bucket)
+2. Configure it for static website hosting
+3. Run `npm run build` and upload `dist/` to the bucket
+4. Create a CloudFront distribution pointing to the S3 bucket
+5. Configure the distribution to redirect HTTP → HTTPS
+6. Set up a cache invalidation on each new deployment
+7. (Optional) Add a custom domain via Route 53 + ACM
+
+**Deliverable:** The app loads at a CloudFront HTTPS URL from anywhere in the world.
+
+---
+
+### ⏳ Module 13 — Monitoring & Logging
+
+**Depends on:** Modules 6, 8
+
+**Goal:** Add observability so you can debug problems and track usage.
+
+**What you learn:**
+- CloudWatch Logs — where Lambda output goes
+- Structured logging (JSON logs vs plain text)
+- CloudWatch Metrics and custom metrics
+- CloudWatch Alarms — get notified when errors spike
+- Log Insights for querying logs
+
+**Steps to complete:**
+1. Add structured JSON logging to both Lambda functions
+2. Create a CloudWatch dashboard with key metrics (invocation count, error rate, duration)
+3. Create an alarm that triggers when the error rate exceeds 5% in 5 minutes
+4. Test by deliberately triggering an error and watching the alarm
+
+**Deliverable:** You can query Lambda logs in CloudWatch Insights and receive an email when error rate spikes.
+
+---
+
+### ⏳ Module 14 — WebRTC Peer-to-Peer Transfer (Optional)
+
+**Depends on:** Module 10
+
+**Goal:** Add an optional P2P transfer mode where files go directly from User A's browser to User B's browser without touching S3.
+
+**What you learn:**
+- WebRTC and how peer-to-peer connections work in a browser
+- Signaling — why two browsers need a server to introduce themselves before going direct
+- WebSocket API in API Gateway
+- Data channels for binary file transfer
+
+**Steps to complete:**
+1. Create a WebSocket API in API Gateway
+2. Write a signaling Lambda that relays SDP offers/answers and ICE candidates between peers
+3. Add P2P mode toggle to the frontend
+4. Implement WebRTC data channel file transfer in the browser
+5. Fall back to S3 mode if WebRTC fails (e.g. strict corporate firewalls)
+
+**Deliverable:** Two browsers on different networks can transfer a file directly, with no data passing through S3.
+
+---
+
+## Architecture Diagram
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                      USER'S BROWSER                          │
+│   React + Vite (served by CloudFront + S3)                   │
+│                                                              │
+│   Upload Page              Receive Page                      │
+│   - file picker            - code input                      │
+│   - drag & drop            - file preview                    │
+│   - validation             - download button                 │
+│   - access code display    - expiry warning                  │
+└────────────────────┬─────────────────────────────────────────┘
+                     │ HTTPS
+┌────────────────────▼─────────────────────────────────────────┐
+│                   API Gateway (HTTP API)                      │
+│   POST /upload          GET /retrieve/{code}                 │
+└───────┬─────────────────────────┬────────────────────────────┘
+        │                         │
+┌───────▼──────────┐   ┌──────────▼──────────┐
+│ Lambda: upload   │   │ Lambda: retrieve     │
+│                  │   │                      │
+│ 1. validate      │   │ 1. read DynamoDB     │
+│ 2. store → S3    │   │ 2. check expiry      │
+│ 3. write →       │   │ 3. generate          │
+│    DynamoDB      │   │    pre-signed URL    │
+│ 4. return code   │   │ 4. return URL        │
+└──────┬───────────┘   └──────────┬───────────┘
+       │                          │
+       ▼                          ▼
+┌──────────────┐       ┌─────────────────────┐
+│  Amazon S3   │       │   Amazon DynamoDB   │
+│              │       │                     │
+│  uploads/    │       │  accessCode  (PK)   │
+│  {code}/     │       │  s3Key              │
+│  {filename}  │       │  fileName           │
+│              │       │  fileSize           │
+│              │       │  contentType        │
+│              │       │  expiresAt  (TTL)   │
+│              │       │  createdAt          │
+└──────────────┘       └─────────────────────┘
+```
+
+---
+
+## Data Flow
+
+**Upload:**
+1. User picks a file in the browser
+2. Browser validates type and size locally (Module 2)
+3. Browser `POST /upload` to API Gateway with the file
+4. Lambda stores file in S3, writes metadata to DynamoDB, returns a 6-char code
+5. Browser shows the code and a QR code
+
+**Retrieve:**
+1. User enters the 6-char code
+2. Browser `GET /retrieve/{code}` to API Gateway
+3. Lambda reads DynamoDB, checks expiry, generates a 15-minute pre-signed S3 URL
+4. Browser receives the URL and lets the user download the file directly from S3
+
+---
+
+*This roadmap is updated at the end of each module. Last updated: 2026-08-13 — Module 3 complete.*
