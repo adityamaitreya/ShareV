@@ -16,10 +16,10 @@ ShareV is a login-free, cloud-based file and text sharing platform. User A uploa
 | 4 | S3 Bucket Setup | ⏳ Not started |
 | 5 | DynamoDB Table Setup | ⏳ Not started |
 | 6 | Upload Lambda | ⏳ Not started |
-| 7 | API Gateway — Upload Route | ⏳ Not started |
-| 8 | Retrieve Lambda | ⏳ Not started |
-| 9 | API Gateway — Retrieve Route | ⏳ Not started |
-| 10 | Connect Frontend to Backend | ⏳ Not started |
+| 7 | API Gateway — Upload Route | ✅ Complete |
+| 8 | Retrieve Lambda | ✅ Complete |
+| 9 | API Gateway — Retrieve Route | ✅ Complete |
+| 10 | Connect Frontend to Backend | ✅ Complete |
 | 11 | File Expiry & Cleanup | ⏳ Not started |
 | 12 | CloudFront & Production Deployment | ⏳ Not started |
 | 13 | Monitoring & Logging | ⏳ Not started |

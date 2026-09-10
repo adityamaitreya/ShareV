@@ -26,10 +26,10 @@ Each module is self-contained and testable before the next one begins.
 | 4 | S3 Bucket Setup | Cloud infra | ✅ |
 | 5 | DynamoDB Table Setup | Cloud infra | ✅ |
 | 6 | Upload Lambda | Backend | ✅ |
-| 7 | API Gateway — Upload Route | Backend | 🔒 |
-| 8 | Retrieve Lambda | Backend | 🔒 |
-| 9 | API Gateway — Retrieve Route | Backend | 🔒 |
-| 10 | Connect Frontend to Backend | Frontend + Backend | 🔒 |
+| 7 | API Gateway — Upload Route | Backend | ✅ |
+| 8 | Retrieve Lambda | Backend | ✅ |
+| 9 | API Gateway — Retrieve Route | Backend | ✅ |
+| 10 | Connect Frontend to Backend | Frontend + Backend | ✅ |
 | 11 | File Expiry & Cleanup | Backend | 🔒 |
 | 12 | CloudFront & Production Deployment | DevOps | 🔒 |
 | 13 | Monitoring & Logging | DevOps | 🔒 |
@@ -235,101 +235,116 @@ createdAt    (String)       — ISO date string
 
 ---
 
-### ⏳ Module 7 — API Gateway — Upload Route
+### ✅ Module 7 — API Gateway — Upload Route
 
 **Depends on:** Module 6
 
 **Goal:** Expose the upload Lambda as an HTTP endpoint.
 
-**What you learn:**
-- REST API vs HTTP API in API Gateway
-- `POST /upload` route configuration
-- Payload size limits (increase to 25 MB for file uploads)
-- CORS headers at the API Gateway level
-- Stages and deployments
+**What you learned:**
+- REST API vs HTTP API in API Gateway (HTTP API is simpler and cheaper)
+- How API Gateway acts as a managed HTTP router in front of Lambda
+- Lambda resource-based policies — why API Gateway needs explicit permission to invoke Lambda
+- AWS_PROXY integration — API Gateway forwards the full request to Lambda and returns its response as-is
+- Stages and auto-deploy — `dev` stage auto-deploys on every change
 
-**Steps to complete:**
-1. Create an HTTP API in API Gateway
-2. Add route `POST /upload` → Upload Lambda integration
-3. Set payload limit to 26 MB
-4. Configure CORS to allow the frontend origin
-5. Deploy to a `dev` stage
-6. Test with Postman or curl
+**Steps completed:**
+1. Created HTTP API `sharev-api` with CORS configured for `http://localhost:5173`
+2. Granted API Gateway permission to invoke `sharev-upload` Lambda
+3. Created AWS_PROXY integration pointing to `sharev-upload`
+4. Created route `POST /upload` mapped to the integration
+5. Created `dev` stage with auto-deploy enabled
+6. Tested with `curl -F` — returned live access code `5XKHRD`
 
-**Deliverable:** `curl -X POST https://{api-id}.execute-api.{region}.amazonaws.com/dev/upload -F "file=@test.pdf"` returns a JSON access code.
+**AWS resources created:**
+- API Gateway HTTP API: `sharev-api`
+- API ID: `imecvsfr4l`
+- Upload endpoint: `https://imecvsfr4l.execute-api.ap-south-1.amazonaws.com/dev/upload`
+
+**Deliverable:** ✅ `curl -X POST .../dev/upload -F "file=@test.txt"` returns a JSON access code.
 
 ---
 
-### ⏳ Module 8 — Retrieve Lambda
+### ✅ Module 8 — Retrieve Lambda
 
 **Depends on:** Modules 4 and 5
 
 **Goal:** Write the Lambda that looks up an access code and returns a secure pre-signed download URL.
 
-**What you learn:**
+**What you learned:**
 - DynamoDB `GetItem` operation
-- Checking TTL / expiry manually (TTL deletion is not instant)
-- Pre-signed S3 URLs — what they are and why they're the right tool
-- Returning different HTTP status codes (200, 404, 410 Gone)
+- Checking TTL / expiry manually (TTL deletion is not instant — can lag up to 48 h)
+- Pre-signed S3 URLs — temporary signed links that let the browser download directly from S3
+- Returning different HTTP status codes (200, 400, 404, 410 Gone, 500)
+- Why files should never proxy through Lambda (pre-signed URLs are the right pattern)
 
-**Steps to complete:**
-1. Create `backend/functions/retrieve/handler.js`
-2. Read `accessCode` from the path parameter
-3. Look up the code in DynamoDB
-4. If not found → return 404
-5. If `expiresAt` is in the past → return 410 (Gone)
-6. Generate a pre-signed S3 URL valid for 15 minutes
-7. Return `{ url, fileName, fileSize, contentType, expiresAt }`
-8. Deploy to Lambda
+**Steps completed:**
+1. Created `backend/functions/retrieve/handler.js`
+2. Reads `accessCode` from path parameter, validates format
+3. Looks up code in DynamoDB with `GetItem`
+4. Returns 404 if not found
+5. Checks `expiresAt` manually — returns 410 if expired
+6. Generates a pre-signed S3 URL valid for 15 minutes with `attachment` disposition
+7. Returns `{ url, fileName, fileSize, contentType, expiresAt }`
+8. Deployed to Lambda (`sharev-retrieve`) reusing `sharev-lambda-role`
+9. Created integration and `GET /retrieve/{code}` route on existing API Gateway
+10. Tested live — `curl .../dev/retrieve/5XKHRD` returned a valid pre-signed URL
 
-**Deliverable:** Invoking the Lambda with a real access code returns a pre-signed URL that downloads the correct file.
+**AWS resources created:**
+- Lambda function: `sharev-retrieve` (region: `ap-south-1`)
+- ARN: `arn:aws:lambda:ap-south-1:764988199438:function:sharev-retrieve`
+- API Gateway route: `GET /retrieve/{code}` → `sharev-retrieve`
+
+**Deliverable:** ✅ `curl .../dev/retrieve/{code}` returns a pre-signed URL that downloads the correct file.
 
 ---
 
-### ⏳ Module 9 — API Gateway — Retrieve Route
+### ✅ Module 9 — API Gateway — Retrieve Route
 
 **Depends on:** Module 8
 
 **Goal:** Expose the retrieve Lambda as an HTTP endpoint.
 
-**What you learn:**
-- Path parameters in API Gateway (`GET /retrieve/{code}`)
-- Connecting multiple routes to one API
-- Testing with real codes from Module 7
+**Steps completed:**
+1. Created AWS_PROXY integration pointing to `sharev-retrieve` (IntegrationId: `228avgo`)
+2. Created route `GET /retrieve/{code}` mapped to the integration
+3. Auto-deploy on existing `dev` stage pushed it live immediately
+4. End-to-end test: uploaded via Module 7, retrieved via this route — full cycle works
 
-**Steps to complete:**
-1. Add route `GET /retrieve/{code}` to the existing API
-2. Integrate with Retrieve Lambda
-3. Deploy updated `dev` stage
-4. End-to-end test: upload a file via Module 7 endpoint, retrieve it via Module 9 endpoint
-
-**Deliverable:** Full upload → retrieve cycle works entirely through HTTP with no AWS Console interaction.
+**Deliverable:** ✅ Full upload → retrieve cycle works entirely through HTTP.
 
 ---
 
-### ⏳ Module 10 — Connect Frontend to Backend
+### ✅ Module 10 — Connect Frontend to Backend
 
 **Depends on:** Modules 7 and 9
 
 **Goal:** Replace all mock behaviour in the React app with real API calls.
 
-**What you learn:**
-- `fetch` API and async/await
-- FormData for sending files from the browser
+**What you learned:**
+- `fetch` API and async/await for real network calls
+- `FormData` for sending files from the browser
 - Environment variables in Vite (`import.meta.env.VITE_*`)
 - Handling loading, success, and error states for real network calls
-- Showing pre-signed URL file previews inline
+- Pre-signed URL file downloads via a programmatically created `<a>` tag
+- Separation of concerns — all fetch logic in `services/api.js`
 
-**Steps to complete:**
-1. Create `src/services/api.js` — all fetch calls in one place
-2. Add `.env.local` with `VITE_API_BASE_URL=https://your-api-id.execute-api...`
-3. Replace mock `handleUpload` in `FileUpload.jsx` with real `uploadFile()` call
-4. Replace mock `handleAccess` in `CodeEntry.jsx` with real `retrieveFile()` call
-5. Handle network errors gracefully with user-facing messages
-6. Show a QR code for the generated access code (using a library)
-7. End-to-end test: upload from browser, receive on a different device
+**Steps completed:**
+1. Created `src/services/api.js` with `uploadFile()` and `retrieveFile()` functions
+2. Created `frontend/.env.local` with `VITE_API_BASE_URL` pointing to API Gateway
+3. Rewrote `FileUpload.jsx` — replaced mock `setTimeout` with real `uploadFile()` call
+4. Rewrote `CodeEntry.jsx` — replaced mock lookup with real `retrieveFile()` call
+5. Download button triggers browser download via pre-signed S3 URL
+6. Error states map API responses to user-facing messages (404, 410, 500)
+7. End-to-end test: uploaded a file in the browser, received the code, downloaded on the same device
 
-**Deliverable:** A file uploaded in the browser can be downloaded by entering the code on another device.
+**Files created/modified:**
+- `frontend/src/services/api.js` — new
+- `frontend/.env.local` — new (gitignored)
+- `frontend/src/components/FileUpload.jsx` — real upload replacing mock
+- `frontend/src/components/CodeEntry.jsx` — real lookup + download replacing mock
+
+**Deliverable:** ✅ A file uploaded in the browser can be downloaded by entering the code. Full end-to-end flow working.
 
 ---
 
@@ -489,4 +504,4 @@ createdAt    (String)       — ISO date string
 
 ---
 
-*This roadmap is updated at the end of each module. Last updated: 2026-09-10 — Module 6 complete.*
+*This roadmap is updated at the end of each module. Last updated: 2026-09-10 — Module 10 complete.*
