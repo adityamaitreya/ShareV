@@ -1,0 +1,17 @@
+Once AWS Support verifies your account, you just need to run one command:
+
+bash
+
+aws cloudfront create-distribution --distribution-config '{"CallerReference":"sharev-2026-09-10","Origins":{"Quantity":1,"Items":[{"Id":"sharev-frontend-s3","DomainName":"sharev-frontend-764988199438.s3.ap-south-1.amazonaws.com","OriginAccessControlId":"E1ZYT3847LBLVW","S3OriginConfig":{"OriginAccessIdentity":""}}]},"DefaultCacheBehavior":{"TargetOriginId":"sharev-frontend-s3","ViewerProtocolPolicy":"redirect-to-https","CachePolicyId":"658327ea-f89d-4fab-a63d-7e88639e58f6","AllowedMethods":{"Quantity":2,"Items":["GET","HEAD"]},"Compress":true},"DefaultRootObject":"index.html","CustomErrorResponses":{"Quantity":1,"Items":[{"ErrorCode":403,"ResponsePagePath":"/index.html","ResponseCode":"200","ErrorCachingMinTTL":0}]},"Comment":"ShareV frontend","Enabled":true}'
+Then after that, two more quick steps:
+
+Update API Gateway CORS to allow the CloudFront URL
+Update .env.local with the production API URL and redeploy
+
+
+
+
+
+
+
+aws cloudfront create-distribution --distribution-config '{"CallerReference":"sharev-2026-09-10","Origins":{"Quantity":1,"Items":[{"Id":"sharev-frontend-s3","DomainName":"sharev-frontend-764988199438.s3.ap-south-1.amazonaws.com","OriginAccessControlId":"E1ZYT3847LBLVW","S3OriginConfig":{"OriginAccessIdentity":""}}]},"DefaultCacheBehavior":{"TargetOriginId":"sharev-frontend-s3","ViewerProtocolPolicy":"redirect-to-https","CachePolicyId":"658327ea-f89d-4fab-a63d-7e88639e58f6","AllowedMethods":{"Quantity":2,"Items":["GET","HEAD"]},"Compress":true},"DefaultRootObject":"index.html","CustomErrorResponses":{"Quantity":1,"Items":[{"ErrorCode":403,"ResponsePagePath":"/index.html","ResponseCode":"200","ErrorCachingMinTTL":0}]},"Comment":"ShareV frontend","Enabled":true}'

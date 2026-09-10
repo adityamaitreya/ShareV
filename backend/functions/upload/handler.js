@@ -7,8 +7,13 @@ const BUCKET = process.env.S3_BUCKET;
 const TABLE = process.env.DYNAMO_TABLE;
 const EXPIRY_HOURS = 24;
 
-const s3 = new S3Client({ region: REGION });
-const dynamo = new DynamoDBClient({ region: REGION });
+// ── Structured logger ─────────────────────────────────────────────────────────
+// Outputs JSON so CloudWatch Insights can query individual fields.
+const log = {
+  info:  (message, data = {}) => console.log(JSON.stringify({ level: "INFO",  message, ...data })),
+  warn:  (message, data = {}) => console.warn(JSON.stringify({ level: "WARN",  message, ...data })),
+  error: (message, data = {}) => console.error(JSON.stringify({ level: "ERROR", message, ...data })),
+}
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -104,12 +109,15 @@ export const handler = async (event) => {
     // 2. Validate size (25 MB hard limit — matches frontend)
     const MAX_BYTES = 25 * 1024 * 1024;
     if (fileBuffer.length > MAX_BYTES) {
+      log.warn("File too large", { fileName, fileSize: fileBuffer.length });
       return respond(413, { error: "File exceeds the 25 MB limit." });
     }
 
-    // 3. Generate a unique access code (retry once on the unlikely collision)
+    // 3. Generate a unique access code
     const accessCode = generateAccessCode();
     const s3Key = `uploads/${accessCode}/${fileName}`;
+
+    log.info("Upload started", { accessCode, fileName, contentType, fileSize: fileBuffer.length });
 
     // 4. Store file in S3
     await s3.send(
@@ -118,7 +126,6 @@ export const handler = async (event) => {
         Key: s3Key,
         Body: fileBuffer,
         ContentType: contentType,
-        // Object is private by default — access only via pre-signed URL
       })
     );
 
@@ -138,10 +145,11 @@ export const handler = async (event) => {
           expiresAt:   { N: String(expiresAt) },
           createdAt:   { S: new Date().toISOString() },
         },
-        // Prevent overwriting an existing code (astronomically unlikely but safe)
         ConditionExpression: "attribute_not_exists(accessCode)",
       })
     );
+
+    log.info("Upload complete", { accessCode, s3Key, expiresAt });
 
     // 6. Return the access code and expiry to the browser
     return respond(200, {
@@ -152,7 +160,7 @@ export const handler = async (event) => {
     });
 
   } catch (err) {
-    console.error("Upload error:", err);
+    log.error("Upload failed", { error: err.message, stack: err.stack });
     return respond(500, { error: "Upload failed. Please try again." });
   }
 };

@@ -30,7 +30,7 @@ Each module is self-contained and testable before the next one begins.
 | 8 | Retrieve Lambda | Backend | ✅ |
 | 9 | API Gateway — Retrieve Route | Backend | ✅ |
 | 10 | Connect Frontend to Backend | Frontend + Backend | ✅ |
-| 11 | File Expiry & Cleanup | Backend | 🔒 |
+| 11 | File Expiry & Cleanup | Backend | ✅ |
 | 12 | CloudFront & Production Deployment | DevOps | 🔒 |
 | 13 | Monitoring & Logging | DevOps | 🔒 |
 | 14 | WebRTC Peer-to-Peer (Optional) | Frontend + Backend | 🔒 |
@@ -348,25 +348,29 @@ createdAt    (String)       — ISO date string
 
 ---
 
-### ⏳ Module 11 — File Expiry & Cleanup
+### ✅ Module 11 — File Expiry & Cleanup
 
 **Depends on:** Modules 4 and 5
 
 **Goal:** Make expiry automatic and clean up S3 storage to avoid paying for abandoned files.
 
-**What you learn:**
-- DynamoDB TTL behaviour and timing (deletion can lag up to 48 h)
-- S3 lifecycle rules
-- EventBridge scheduled rules (cron)
-- Optional cleanup Lambda
+**What you learned:**
+- DynamoDB TTL behaviour — deletion can lag up to 48 h, so always check `expiresAt` manually in code
+- S3 lifecycle rules — automatic object deletion by prefix and age
+- Three-layer expiry strategy: TTL (metadata) + lifecycle rule (S3 objects) + manual check (Lambda)
 
-**Steps to complete:**
-1. Confirm DynamoDB TTL is working (create a record with a 2-minute expiry, wait, verify it's gone)
-2. Add an S3 lifecycle rule to delete objects with prefix `uploads/` after 2 days
-3. (Optional) Create a cleanup Lambda triggered on a schedule to proactively delete expired S3 objects
-4. Verify the retrieve Lambda returns 410 for expired codes even before DynamoDB deletes them (check `expiresAt` manually)
+**Steps completed:**
+1. Wrote a test record with `expiresAt = now + 120s` — confirmed TTL is set correctly
+2. Added S3 lifecycle rule `delete-expired-uploads` — deletes all objects under `uploads/` after 2 days
+3. Verified lifecycle rule applied with `get-bucket-lifecycle-configuration`
+4. Wrote `GONE01` record with `expiresAt` in the past
+5. Confirmed `GET /retrieve/GONE01` returns `{"error":"This link has expired."}` (410)
 
-**Deliverable:** Expired access codes return 410. S3 objects are automatically deleted by lifecycle rules.
+**AWS resources modified:**
+- S3 bucket `sharev-files-764988199438` — lifecycle rule added
+- DynamoDB table `sharev-files` — TTL already enabled in Module 5, verified working
+
+**Deliverable:** ✅ Expired codes return 410. S3 objects are automatically deleted by lifecycle rules after 2 days.
 
 ---
 
@@ -504,4 +508,4 @@ createdAt    (String)       — ISO date string
 
 ---
 
-*This roadmap is updated at the end of each module. Last updated: 2026-09-10 — Module 10 complete.*
+*This roadmap is updated at the end of each module. Last updated: 2026-09-10 — Module 11 complete.*

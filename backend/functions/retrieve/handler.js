@@ -10,6 +10,13 @@ const PRESIGN_TTL_SECONDS = 15 * 60; // 15 minutes
 const s3 = new S3Client({ region: REGION });
 const dynamo = new DynamoDBClient({ region: REGION });
 
+// ── Structured logger ─────────────────────────────────────────────────────────
+const log = {
+  info:  (message, data = {}) => console.log(JSON.stringify({ level: "INFO",  message, ...data })),
+  warn:  (message, data = {}) => console.warn(JSON.stringify({ level: "WARN",  message, ...data })),
+  error: (message, data = {}) => console.error(JSON.stringify({ level: "ERROR", message, ...data })),
+}
+
 // ── CORS headers returned on every response ───────────────────────────────────
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -50,23 +57,23 @@ export const handler = async (event) => {
 
     // 2. Not found
     if (!Item) {
+      log.warn("Access code not found", { accessCode });
       return respond(404, { error: "Access code not found." });
     }
 
-    // 3. Check expiry manually — DynamoDB TTL deletion can lag up to 48 hours,
-    //    so we always check the timestamp ourselves rather than trusting the item
-    //    to be gone from the table.
+    // 3. Check expiry
     const expiresAt = Number(Item.expiresAt.N);
     const nowSeconds = Math.floor(Date.now() / 1000);
 
     if (nowSeconds > expiresAt) {
+      log.warn("Access code expired", { accessCode, expiresAt });
       return respond(410, { error: "This link has expired." });
     }
 
-    // 4. Generate a pre-signed S3 URL valid for 15 minutes.
-    //    The file never passes through Lambda — the browser downloads it
-    //    directly from S3 using this temporary signed URL.
+    // 4. Generate pre-signed URL
     const s3Key = Item.s3Key.S;
+    log.info("Retrieve started", { accessCode, s3Key, fileName: Item.fileName.S });
+
     const presignedUrl = await getSignedUrl(
       s3,
       new GetObjectCommand({
@@ -77,7 +84,9 @@ export const handler = async (event) => {
       { expiresIn: PRESIGN_TTL_SECONDS }
     );
 
-    // 5. Return the URL and file metadata to the browser
+    log.info("Retrieve complete", { accessCode, fileName: Item.fileName.S });
+
+    // 5. Return the URL and file metadata
     return respond(200, {
       url: presignedUrl,
       fileName: Item.fileName.S,
@@ -87,7 +96,7 @@ export const handler = async (event) => {
     });
 
   } catch (err) {
-    console.error("Retrieve error:", err);
+    log.error("Retrieve failed", { error: err.message, stack: err.stack });
     return respond(500, { error: "Retrieval failed. Please try again." });
   }
 };

@@ -20,7 +20,7 @@ ShareV is a login-free, cloud-based file and text sharing platform. User A uploa
 | 8 | Retrieve Lambda | ✅ Complete |
 | 9 | API Gateway — Retrieve Route | ✅ Complete |
 | 10 | Connect Frontend to Backend | ✅ Complete |
-| 11 | File Expiry & Cleanup | ⏳ Not started |
+| 11 | File Expiry & Cleanup | ✅ Complete |
 | 12 | CloudFront & Production Deployment | ⏳ Not started |
 | 13 | Monitoring & Logging | ⏳ Not started |
 | 14 | WebRTC Peer-to-Peer (Optional) | ⏳ Not started |
