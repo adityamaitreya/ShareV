@@ -6,6 +6,27 @@ ShareV is a login-free, cloud-based file and text sharing platform. User A uploa
 
 ---
 
+## Project Status
+
+| Module | Title | Status |
+|--------|-------|--------|
+| 1 | React Frontend Shell | ✅ Complete |
+| 2 | File Selection & Client-Side Validation | ✅ Complete |
+| 3 | AWS Account & IAM Setup | ✅ Complete |
+| 4 | S3 Bucket Setup | ⏳ Not started |
+| 5 | DynamoDB Table Setup | ⏳ Not started |
+| 6 | Upload Lambda | ⏳ Not started |
+| 7 | API Gateway — Upload Route | ⏳ Not started |
+| 8 | Retrieve Lambda | ⏳ Not started |
+| 9 | API Gateway — Retrieve Route | ⏳ Not started |
+| 10 | Connect Frontend to Backend | ⏳ Not started |
+| 11 | File Expiry & Cleanup | ⏳ Not started |
+| 12 | CloudFront & Production Deployment | ⏳ Not started |
+| 13 | Monitoring & Logging | ⏳ Not started |
+| 14 | WebRTC Peer-to-Peer (Optional) | ⏳ Not started |
+
+---
+
 ## Technology Stack
 
 | Layer | Technology | Purpose |
@@ -73,7 +94,7 @@ ShareV/
 
 ### Run the frontend locally
 
-```powershell
+```bash
 cd frontend
 npm install
 npm run dev
@@ -83,7 +104,7 @@ Open `http://localhost:5173` in your browser.
 
 ### Other commands
 
-```powershell
+```bash
 npm run build      # Production build → dist/
 npm run preview    # Preview the production build locally
 npm run lint       # Run oxlint

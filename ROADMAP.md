@@ -23,9 +23,9 @@ Each module is self-contained and testable before the next one begins.
 | 1 | React Frontend Shell | Frontend | ✅ |
 | 2 | File Selection & Client-Side Validation | Frontend | ✅ |
 | 3 | AWS Account & IAM Setup | Cloud infra | ✅ |
-| 4 | S3 Bucket Setup | Cloud infra | ⏳ |
-| 5 | DynamoDB Table Setup | Cloud infra | ⏳ |
-| 6 | Upload Lambda | Backend | 🔒 |
+| 4 | S3 Bucket Setup | Cloud infra | ✅ |
+| 5 | DynamoDB Table Setup | Cloud infra | ✅ |
+| 6 | Upload Lambda | Backend | ✅ |
 | 7 | API Gateway — Upload Route | Backend | 🔒 |
 | 8 | Retrieve Lambda | Backend | 🔒 |
 | 9 | API Gateway — Retrieve Route | Backend | 🔒 |
@@ -130,47 +130,58 @@ Each module is self-contained and testable before the next one begins.
 
 ---
 
-### ⏳ Module 4 — S3 Bucket Setup
+### ✅ Module 4 — S3 Bucket Setup
 
 **Depends on:** Module 3
 
 **Goal:** Create the S3 bucket that will store uploaded files. No public access.
 
-**What you learn:**
+**What you learned:**
 - S3 buckets and objects
 - Why you never make a storage bucket fully public
 - Bucket policies vs ACLs
 - CORS — what it is and why the browser needs it configured
 - Server-side encryption at rest
 
-**Steps to complete:**
-1. Create bucket `sharev-files-{your-account-id}` in your chosen region
-2. Block all public access (the default — keep it)
-3. Enable server-side encryption (SSE-S3)
-4. Add a bucket policy allowing only your Lambda role to read/write
-5. Configure CORS so the browser can receive pre-signed URL responses
-6. Test by uploading a file with the AWS CLI: `aws s3 cp test.txt s3://your-bucket/`
+**Steps completed:**
+1. Added `s3:CreateBucket` and bucket-management permissions to the `shareV` IAM policy
+2. Created bucket `sharev-files-764988199438` in `ap-south-1`
+3. Blocked all public access (all four flags set to true)
+4. Enabled server-side encryption (SSE-S3 / AES256) with BucketKey
+5. Added bucket policy scoped to `arn:aws:iam::764988199438:user/shareV`
+6. Configured CORS to allow `http://localhost:5173` (to be updated with CloudFront URL in Module 12)
+7. Tested upload with `aws s3 cp` — object appeared in `aws s3 ls`
+8. Verified `curl` on the object URL returns `AccessDenied`
 
-**Deliverable:** File uploads and downloads via the AWS CLI work. Direct browser access returns `AccessDenied`.
+**AWS resources created:**
+- S3 bucket: `sharev-files-764988199438` (region: `ap-south-1`)
+
+**Deliverable:** ✅ File uploads via the AWS CLI work. Direct browser access returns `AccessDenied`.
 
 ---
 
-### ⏳ Module 5 — DynamoDB Table Setup
+### ✅ Module 5 — DynamoDB Table Setup
 
 **Depends on:** Module 3
 
 **Goal:** Create the DynamoDB table that stores access codes and metadata.
 
-**What you learn:**
+**What you learned:**
 - DynamoDB: tables, items, attributes
 - How NoSQL differs from SQL (no fixed schema, key-based access)
 - Primary keys (partition key)
 - TTL (Time To Live) — automatic record deletion after expiry
+- `PAY_PER_REQUEST` billing — no capacity planning needed at this stage
 
-**Steps to complete:**
-1. Create table `sharev-files` with partition key `accessCode` (String)
-2. Enable TTL on attribute `expiresAt`
-3. Test by writing and reading a record with the AWS CLI
+**Steps completed:**
+1. Created table `sharev-files` with partition key `accessCode` (String), billing mode `PAY_PER_REQUEST`
+2. Enabled TTL on attribute `expiresAt`
+3. Wrote a test item with `aws dynamodb put-item`
+4. Read it back with `aws dynamodb get-item` — all fields returned correctly
+
+**AWS resources created:**
+- DynamoDB table: `sharev-files` (region: `ap-south-1`)
+- ARN: `arn:aws:dynamodb:ap-south-1:764988199438:table/sharev-files`
 
 **Table schema:**
 ```
@@ -183,34 +194,44 @@ expiresAt    (Number)       — Unix timestamp, TTL attribute
 createdAt    (String)       — ISO date string
 ```
 
-**Deliverable:** `aws dynamodb get-item` returns a test record. After the TTL timestamp passes, the item is automatically deleted.
+**Deliverable:** ✅ `aws dynamodb get-item` returns a test record. TTL enabled on `expiresAt`.
 
 ---
 
-### ⏳ Module 6 — Upload Lambda
+### ✅ Module 6 — Upload Lambda
 
 **Depends on:** Modules 4 and 5
 
 **Goal:** Write the Lambda function that receives a file, stores it in S3, saves metadata to DynamoDB, and returns an access code.
 
-**What you learn:**
+**What you learned:**
 - Lambda function structure (handler, event, context)
 - AWS SDK v3 (modular, tree-shakeable)
 - Generating cryptographically random access codes
 - Environment variables in Lambda
 - Error handling and HTTP status codes
+- Multipart form-data parsing in a Lambda context
+- IAM execution roles for Lambda
 
-**Steps to complete:**
-1. Create `backend/functions/upload/handler.js`
-2. Accept `multipart/form-data` from API Gateway
-3. Generate a unique 6-char alphanumeric code
-4. Upload the file buffer to S3
-5. Write metadata to DynamoDB with `expiresAt = now + 24 hours`
-6. Return `{ accessCode, expiresAt }` with status 200
-7. Test locally with a mock event object
-8. Deploy to Lambda via AWS CLI
+**Steps completed:**
+1. Created `backend/functions/upload/handler.js`
+2. Parses `multipart/form-data` from API Gateway event
+3. Generates a unique 6-char alphanumeric access code (no ambiguous chars 0/O/1/I)
+4. Uploads file buffer to S3 under `uploads/{code}/{filename}`
+5. Writes all metadata to DynamoDB with `expiresAt = now + 24 hours`
+6. Returns `{ accessCode, expiresAt, fileName, fileSize }` with status 200
+7. Created `sharev-lambda-role` IAM role with S3, DynamoDB, and CloudWatch Logs permissions
+8. Deployed to Lambda (`sharev-upload`) via AWS CLI with `nodejs22.x` runtime
+9. Tested locally with `test-event.js` — returned valid access code
+10. Tested live Lambda invoke — returned access code `33GCW3`, file confirmed in S3 and DynamoDB
 
-**Deliverable:** Invoking the Lambda with a test event returns a valid access code and the file appears in S3.
+**AWS resources created:**
+- Lambda function: `sharev-upload` (region: `ap-south-1`)
+- ARN: `arn:aws:lambda:ap-south-1:764988199438:function:sharev-upload`
+- IAM role: `sharev-lambda-role`
+- ARN: `arn:aws:iam::764988199438:role/sharev-lambda-role`
+
+**Deliverable:** ✅ Invoking the Lambda with a test event returns a valid access code and the file appears in S3.
 
 ---
 
@@ -468,4 +489,4 @@ createdAt    (String)       — ISO date string
 
 ---
 
-*This roadmap is updated at the end of each module. Last updated: 2026-08-13 — Module 3 complete.*
+*This roadmap is updated at the end of each module. Last updated: 2026-09-10 — Module 6 complete.*
