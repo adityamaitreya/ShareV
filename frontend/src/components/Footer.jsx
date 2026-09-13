@@ -1,19 +1,16 @@
-/*
-  Footer.jsx — a simple footer shown at the bottom of every page.
-
-  Keeping this in its own component means if you ever want to
-  update the footer text, you change it in one place and every
-  page reflects the update automatically.
-*/
-
 function Footer() {
   const year = new Date().getFullYear()
 
   return (
     <footer className="footer">
       <p className="footer__text">
-        &copy; {year} ShareV &mdash; Secure, temporary file sharing. No account required.
+        &copy; {year} ShareV — Secure, temporary file sharing. No account required.
       </p>
+      <div className="footer__links">
+        <a className="footer__link" href="#">Privacy</a>
+        <a className="footer__link" href="#">Security</a>
+        <a className="footer__link" href="#">Status</a>
+      </div>
     </footer>
   )
 }

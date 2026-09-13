@@ -31,9 +31,14 @@ Each module is self-contained and testable before the next one begins.
 | 9 | API Gateway — Retrieve Route | Backend | ✅ |
 | 10 | Connect Frontend to Backend | Frontend + Backend | ✅ |
 | 11 | File Expiry & Cleanup | Backend | ✅ |
-| 12 | CloudFront & Production Deployment | DevOps | 🔒 |
-| 13 | Monitoring & Logging | DevOps | 🔒 |
+| 12 | CloudFront & Production Deployment | DevOps | ✅ |
+| 13 | Monitoring & Logging | DevOps | ✅ |
 | 14 | WebRTC Peer-to-Peer (Optional) | Frontend + Backend | 🔒 |
+| 15 | Security Headers | Security | ⏳ |
+| 16 | Brute-Force Protection | Security | ⏳ |
+| 17 | Rate Limiting | Security | ⏳ |
+| 18 | File Malware Scanning | Security | ⏳ |
+| 19 | Audit Logging | Security | ⏳ |
 
 ---
 
@@ -374,52 +379,54 @@ createdAt    (String)       — ISO date string
 
 ---
 
-### ⏳ Module 12 — CloudFront & Production Deployment
+### ✅ Module 12 — Production Deployment (Vercel)
 
-**Depends on:** Module 10
+**Goal:** Deploy the React app to a public HTTPS URL accessible from anywhere.
 
-**Goal:** Deploy the React app to S3 + CloudFront for fast, globally distributed, HTTPS delivery.
+**What you learned:**
+- CloudFront requires AWS account verification for new accounts
+- Vercel as an alternative CDN — free, instant HTTPS, global edge network
+- GitHub-linked deployments — every push auto-redeploys
+- Updating API Gateway CORS to allow the production origin
 
-**What you learn:**
-- Static site hosting on S3
-- CloudFront distributions, origins, and behaviours
-- Cache invalidation after a new deployment
-- HTTPS with ACM (AWS Certificate Manager) — free certificates
-- Custom domain setup (optional)
+**Steps completed:**
+1. Pushed project to GitHub
+2. Connected GitHub repo to Vercel, set root directory to `frontend`
+3. Added `VITE_API_BASE_URL` environment variable in Vercel dashboard
+4. Deployed — live at `https://share-v.vercel.app`
+5. Updated API Gateway CORS to allow `https://share-v.vercel.app`
+6. Fixed upload Lambda bug (S3/DynamoDB clients accidentally removed during logging refactor)
+7. Redeployed Lambda — upload and retrieve fully working in production
 
-**Steps to complete:**
-1. Create an S3 bucket for the frontend (separate from the file storage bucket)
-2. Configure it for static website hosting
-3. Run `npm run build` and upload `dist/` to the bucket
-4. Create a CloudFront distribution pointing to the S3 bucket
-5. Configure the distribution to redirect HTTP → HTTPS
-6. Set up a cache invalidation on each new deployment
-7. (Optional) Add a custom domain via Route 53 + ACM
+**Live URLs:**
+- Frontend: `https://share-v.vercel.app`
+- API: `https://imecvsfr4l.execute-api.ap-south-1.amazonaws.com/dev`
 
-**Deliverable:** The app loads at a CloudFront HTTPS URL from anywhere in the world.
+**Deliverable:** ✅ App loads at a public HTTPS URL. File upload and retrieve work end-to-end in production.
 
 ---
 
-### ⏳ Module 13 — Monitoring & Logging
+### ✅ Module 13 — Monitoring & Logging
 
 **Depends on:** Modules 6, 8
 
 **Goal:** Add observability so you can debug problems and track usage.
 
-**What you learn:**
-- CloudWatch Logs — where Lambda output goes
-- Structured logging (JSON logs vs plain text)
-- CloudWatch Metrics and custom metrics
-- CloudWatch Alarms — get notified when errors spike
-- Log Insights for querying logs
+**What you learned:**
+- CloudWatch Logs — where Lambda output goes automatically
+- Structured JSON logging — every log line is a parseable JSON object queryable with CloudWatch Insights
+- SNS topics — pub/sub notification service
+- CloudWatch Alarms — trigger notifications when error count exceeds a threshold
 
-**Steps to complete:**
-1. Add structured JSON logging to both Lambda functions
-2. Create a CloudWatch dashboard with key metrics (invocation count, error rate, duration)
-3. Create an alarm that triggers when the error rate exceeds 5% in 5 minutes
-4. Test by deliberately triggering an error and watching the alarm
+**Steps completed:**
+1. Added structured JSON logger to both Lambda functions (`log.info`, `log.warn`, `log.error`)
+2. Redeployed both Lambdas with logging
+3. Created SNS topic `sharev-alerts` — ARN: `arn:aws:sns:ap-south-1:764988199438:sharev-alerts`
+4. Subscribed `cocg737@gmail.com` to the topic — confirmed subscription
+5. Created CloudWatch alarm `sharev-upload-errors` — triggers on ≥3 errors in 5 minutes
+6. Created CloudWatch alarm `sharev-retrieve-errors` — triggers on ≥3 errors in 5 minutes
 
-**Deliverable:** You can query Lambda logs in CloudWatch Insights and receive an email when error rate spikes.
+**Deliverable:** ✅ Structured logs written to CloudWatch. Email alert fires when error rate spikes.
 
 ---
 
@@ -508,4 +515,121 @@ createdAt    (String)       — ISO date string
 
 ---
 
-*This roadmap is updated at the end of each module. Last updated: 2026-09-10 — Module 11 complete.*
+*This roadmap is updated at the end of each module. Last updated: 2026-09-10 — Module 13 complete. Project live at https://share-v.vercel.app*
+
+---
+
+## Security Modules
+
+---
+
+### ⏳ Module 15 — Security Headers
+
+**Goal:** Harden the frontend against common web attacks by adding HTTP security headers.
+
+**What you learn:**
+- Content Security Policy (CSP) — restricts what resources the browser can load
+- X-Frame-Options — prevents clickjacking by blocking iframe embedding
+- Strict-Transport-Security (HSTS) — forces HTTPS for all future requests
+- X-Content-Type-Options — prevents MIME type sniffing attacks
+- How Vercel serves headers via `vercel.json`
+
+**Steps to complete:**
+1. Create `frontend/vercel.json` with security header configuration
+2. Verify headers are present in browser DevTools → Network tab
+3. Test CSP doesn't break the app (API calls must be allowed)
+4. Score the deployment on [securityheaders.com](https://securityheaders.com)
+
+**Deliverable:** `securityheaders.com` returns an A or B grade for `https://share-v.vercel.app`.
+
+---
+
+### ⏳ Module 16 — Brute-Force Protection
+
+**Goal:** Block repeated guessing of access codes by tracking failed lookup attempts per IP.
+
+**What you learn:**
+- Brute-force attack patterns and why 6-char codes need protection
+- Using DynamoDB as a rate-limit counter store
+- Atomic increment operations with `UpdateItem`
+- Returning HTTP 429 Too Many Requests
+- TTL-based automatic reset of counters
+
+**Steps to complete:**
+1. Create a `sharev-ratelimit` DynamoDB table with partition key `pk` (String) and TTL on `expiresAt`
+2. In `retrieve/handler.js` — before the DynamoDB lookup, check and increment a counter keyed on `IP#accessCode`
+3. If counter exceeds 10 in a 5-minute window → return 429
+4. Reset counter on successful lookup
+5. Test by sending 11 bad code attempts from the same IP
+
+**Deliverable:** After 10 failed attempts with the same code from the same IP, the API returns 429 for 5 minutes.
+
+---
+
+### ⏳ Module 17 — Rate Limiting
+
+**Goal:** Prevent upload abuse by throttling requests at the API Gateway level.
+
+**What you learn:**
+- API Gateway usage plans and throttling
+- Token bucket algorithm — how AWS implements rate limiting
+- Burst vs steady-state rate limits
+- Returning 429 at the infrastructure level (before Lambda even runs)
+
+**Steps to complete:**
+1. Create an API Gateway usage plan for the `dev` stage
+2. Set throttle: 10 requests/second burst, 5 requests/second steady rate on `POST /upload`
+3. Set quota: 1000 uploads per day per API key (optional)
+4. Test by sending rapid requests and observing 429 responses
+
+**Deliverable:** Sending >10 upload requests per second returns 429 from API Gateway without invoking Lambda.
+
+---
+
+### ⏳ Module 18 — File Malware Scanning
+
+**Goal:** Scan every uploaded file for malware before making it available for download.
+
+**What you learn:**
+- ClamAV — open source antivirus engine
+- Lambda layers — packaging shared binaries/libraries for Lambda
+- Two-phase upload: quarantine → scan → approve or reject
+- S3 object tagging — marking files as clean or infected
+- Event-driven architecture — S3 triggers a scan Lambda on upload
+
+**Steps to complete:**
+1. Add a `quarantine/` prefix to S3 — files land here first, not `uploads/`
+2. Update `upload/handler.js` to write to `quarantine/{code}/{filename}`
+3. Create a scan Lambda triggered by S3 `ObjectCreated` events on the `quarantine/` prefix
+4. Add ClamAV as a Lambda layer (use `ciisb/clamav-lambda-layer` or build your own)
+5. If clean → move object from `quarantine/` to `uploads/`, update DynamoDB status to `clean`
+6. If infected → delete object, update DynamoDB status to `infected`, log the event
+7. Update `retrieve/handler.js` to check DynamoDB `status` field — only serve `clean` files
+8. Test with EICAR test file (standard harmless malware test string)
+
+**Deliverable:** Uploading an EICAR test file returns a 200 with an access code, but retrieving it returns 403 — the file was quarantined and deleted.
+
+---
+
+### ⏳ Module 19 — Audit Logging
+
+**Goal:** Record every upload and retrieve event with a privacy-preserving audit trail.
+
+**What you learn:**
+- Audit logging as a security and compliance requirement
+- Privacy-preserving logging — hashing IPs instead of storing raw values
+- Append-only data patterns
+- Using DynamoDB for structured audit trails
+- SHA-256 hashing in Node.js
+
+**Steps to complete:**
+1. Create a `sharev-audit` DynamoDB table with partition key `eventId` (String) and sort key `timestamp` (String)
+2. Create a shared `audit.js` utility that writes structured audit events
+3. Log `UPLOAD` events from `upload/handler.js` — eventId, timestamp, accessCode, fileName, fileSize, contentType, hashedIp
+4. Log `RETRIEVE` events from `retrieve/handler.js` — eventId, timestamp, accessCode, hashedIp, result (found/expired/not-found)
+5. Log `SCAN_RESULT` events from the scan Lambda — eventId, timestamp, accessCode, result (clean/infected)
+6. Verify audit records appear in DynamoDB after upload and retrieve
+
+**Deliverable:** Every upload, retrieve, and scan event is recorded in `sharev-audit` with hashed IP and full metadata.
+
+---

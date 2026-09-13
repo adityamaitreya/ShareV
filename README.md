@@ -13,17 +13,22 @@ ShareV is a login-free, cloud-based file and text sharing platform. User A uploa
 | 1 | React Frontend Shell | ✅ Complete |
 | 2 | File Selection & Client-Side Validation | ✅ Complete |
 | 3 | AWS Account & IAM Setup | ✅ Complete |
-| 4 | S3 Bucket Setup | ⏳ Not started |
-| 5 | DynamoDB Table Setup | ⏳ Not started |
-| 6 | Upload Lambda | ⏳ Not started |
+| 4 | S3 Bucket Setup | ✅ Complete |
+| 5 | DynamoDB Table Setup | ✅ Complete |
+| 6 | Upload Lambda | ✅ Complete |
 | 7 | API Gateway — Upload Route | ✅ Complete |
 | 8 | Retrieve Lambda | ✅ Complete |
 | 9 | API Gateway — Retrieve Route | ✅ Complete |
 | 10 | Connect Frontend to Backend | ✅ Complete |
 | 11 | File Expiry & Cleanup | ✅ Complete |
-| 12 | CloudFront & Production Deployment | ⏳ Not started |
-| 13 | Monitoring & Logging | ⏳ Not started |
+| 12 | CloudFront & Production Deployment | ✅ Complete |
+| 13 | Monitoring & Logging | ✅ Complete |
 | 14 | WebRTC Peer-to-Peer (Optional) | ⏳ Not started |
+| **15** | **Security Headers** | ⏳ Not started |
+| **16** | **Brute-Force Protection** | ⏳ Not started |
+| **17** | **Rate Limiting** | ⏳ Not started |
+| **18** | **File Malware Scanning** | ⏳ Not started |
+| **19** | **Audit Logging** | ⏳ Not started |
 
 ---
 
@@ -34,12 +39,13 @@ ShareV is a login-free, cloud-based file and text sharing platform. User A uploa
 | Frontend | React 19 + Vite 8 | UI, file picker, code entry |
 | Routing | React Router DOM 7 | SPA page navigation |
 | Backend | AWS Lambda (Node.js) | Upload and retrieve logic |
-| API | Amazon API Gateway | HTTP endpoints |
+| API | Amazon API Gateway | HTTP endpoints + throttling |
 | File storage | Amazon S3 | Stores uploaded files |
-| Metadata | Amazon DynamoDB | Stores access codes + expiry |
+| Metadata | Amazon DynamoDB | Stores access codes, expiry, audit logs |
 | Security | AWS IAM + Pre-signed URLs | Least-privilege access control |
+| Security | ClamAV Lambda layer | File malware scanning |
 | Monitoring | Amazon CloudWatch | Logs, metrics, alarms |
-| CDN | Amazon CloudFront + S3 | Frontend hosting and delivery |
+| CDN | Vercel | Frontend hosting and delivery |
 | Optional | WebRTC | Peer-to-peer direct transfer |
 
 ---

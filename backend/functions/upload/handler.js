@@ -15,6 +15,9 @@ const log = {
   error: (message, data = {}) => console.error(JSON.stringify({ level: "ERROR", message, ...data })),
 }
 
+const s3 = new S3Client({ region: REGION });
+const dynamo = new DynamoDBClient({ region: REGION });
+
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 /**

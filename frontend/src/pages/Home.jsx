@@ -3,46 +3,52 @@ import FileUpload from '../components/FileUpload'
 import CodeEntry from '../components/CodeEntry'
 import Footer from '../components/Footer'
 
-/*
-  Home.jsx — the single page of ShareV for Module 1.
-
-  What is a "page" vs a "component"?
-  -----------------------------------
-  There is no technical difference in React — both are just functions.
-  The convention is:
-    components/ → reusable building blocks (Header, Button, Card…)
-    pages/      → full screens that the router maps a URL to
-
-  This page composes smaller components together into a full layout.
-  It does not contain any logic itself — that lives inside each component.
-*/
-
 function Home() {
   return (
-    <div className="page">
-      <Header />
+    <div className="dashboard">
+      <div className="dashboard-main">
 
-      <main className="main">
-        {/* Hero section — brief description of what ShareV does */}
-        {/* <section className="hero">
-          <h1 className="hero__title">
-            Share anything.<br />
-            <span className="hero__accent">Instantly.</span>
-          </h1>
-          <p className="hero__body">
-            Upload a file or text — get a short code. Share the code.
-            The recipient downloads it. No accounts, no sign-up, no friction.
-          </p>
-        </section> */}
+        <Header />
 
-        {/* Two-column grid on desktop, stacked on mobile */}
-        <div className="cards-grid">
+        {/* Stats bar */}
+        <div className="stats-bar" role="region" aria-label="Service statistics">
+          <div className="stat-card">
+            <div className="stat-card__icon" aria-hidden="true">📤</div>
+            <div className="stat-card__label">Max File Size</div>
+            <div className="stat-card__value">25<span style={{fontSize:'1rem',fontWeight:500}}>MB</span></div>
+            <div className="stat-card__sub">Per upload</div>
+          </div>
+
+          <div className="stat-card stat-card--accent">
+            <div className="stat-card__icon" aria-hidden="true">⏱️</div>
+            <div className="stat-card__label">Code Expiry</div>
+            <div className="stat-card__value">24<span style={{fontSize:'1rem',fontWeight:500}}>h</span></div>
+            <div className="stat-card__sub">Auto-deleted after</div>
+          </div>
+
+          <div className="stat-card">
+            <div className="stat-card__icon" aria-hidden="true">🔑</div>
+            <div className="stat-card__label">Code Length</div>
+            <div className="stat-card__value">6</div>
+            <div className="stat-card__sub">Alphanumeric chars</div>
+          </div>
+
+          <div className="stat-card stat-card--dark">
+            <div className="stat-card__icon" aria-hidden="true">🛡️</div>
+            <div className="stat-card__label">Encryption</div>
+            <div className="stat-card__value" style={{fontSize:'1.25rem'}}>AES-256</div>
+            <div className="stat-card__sub">At rest + in transit</div>
+          </div>
+        </div>
+
+        {/* Main panels */}
+        <div className="content-grid">
           <FileUpload />
           <CodeEntry />
         </div>
-      </main>
 
-      <Footer />
+        <Footer />
+      </div>
     </div>
   )
 }
