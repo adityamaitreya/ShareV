@@ -33,7 +33,7 @@ function Home() {
             <div className="stat-card__sub">Alphanumeric chars</div>
           </div>
 
-          <div className="stat-card stat-card--dark">
+          <div className="stat-card stat-card--brand">
             <div className="stat-card__icon" aria-hidden="true">🛡️</div>
             <div className="stat-card__label">Encryption</div>
             <div className="stat-card__value" style={{fontSize:'1.25rem'}}>AES-256</div>
