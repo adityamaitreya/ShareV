@@ -5,51 +5,22 @@ import Footer from '../components/Footer'
 
 function Home() {
   return (
-    <div className="dashboard">
-      <div className="dashboard-main">
-
-        <Header />
-
-        {/* Stats bar */}
-        <div className="stats-bar" role="region" aria-label="Service statistics">
-          <div className="stat-card">
-            <div className="stat-card__icon" aria-hidden="true">📤</div>
-            <div className="stat-card__label">Max File Size</div>
-            <div className="stat-card__value">25<span style={{fontSize:'1rem',fontWeight:500}}>MB</span></div>
-            <div className="stat-card__sub">Per upload</div>
-          </div>
-
-          <div className="stat-card stat-card--accent">
-            <div className="stat-card__icon" aria-hidden="true">⏱️</div>
-            <div className="stat-card__label">Code Expiry</div>
-            <div className="stat-card__value">24<span style={{fontSize:'1rem',fontWeight:500}}>h</span></div>
-            <div className="stat-card__sub">Auto-deleted after</div>
-          </div>
-
-          <div className="stat-card">
-            <div className="stat-card__icon" aria-hidden="true">🔑</div>
-            <div className="stat-card__label">Code Length</div>
-            <div className="stat-card__value">6</div>
-            <div className="stat-card__sub">Alphanumeric chars</div>
-          </div>
-
-          <div className="stat-card stat-card--brand">
-            <div className="stat-card__icon" aria-hidden="true">🛡️</div>
-            <div className="stat-card__label">Encryption</div>
-            <div className="stat-card__value" style={{fontSize:'1.25rem'}}>AES-256</div>
-            <div className="stat-card__sub">At rest + in transit</div>
-          </div>
+    <>
+      <Header />
+      <main className="main">
+        <div>
+          <h1 className="page-title">File sharing, no account required</h1>
+          <p className="page-subtitle">
+            Upload a file — get a 6-character code. Share the code. File auto-deletes after 24 hours.
+          </p>
         </div>
-
-        {/* Main panels */}
-        <div className="content-grid">
+        <div className="grid">
           <FileUpload />
           <CodeEntry />
         </div>
-
-        <Footer />
-      </div>
-    </div>
+      </main>
+      <Footer />
+    </>
   )
 }
 

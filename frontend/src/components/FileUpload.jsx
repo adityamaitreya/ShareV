@@ -3,208 +3,158 @@ import {
   validateFile,
   formatBytes,
   getFileIcon,
-  getReadableType,
   ACCEPT_STRING,
 } from '../utils/fileValidation'
 import { uploadFile } from '../services/api'
 
 function FileUpload() {
-  const [selectedFile,    setSelectedFile]    = useState(null)
-  const [validationError, setValidationError] = useState(null)
-  const [uploadStatus,    setUploadStatus]    = useState('idle')  // idle | uploading | success | error
-  const [accessCode,      setAccessCode]      = useState('')
-  const [expiresAt,       setExpiresAt]       = useState(null)
-  const [uploadError,     setUploadError]     = useState(null)
-  const [isDragging,      setIsDragging]      = useState(false)
-  const [copied,          setCopied]          = useState(false)
+  const [file,        setFile]        = useState(null)
+  const [error,       setError]       = useState(null)   // { message, hint }
+  const [status,      setStatus]      = useState('idle') // idle | uploading | success | fail
+  const [accessCode,  setAccessCode]  = useState('')
+  const [expiresAt,   setExpiresAt]   = useState(null)
+  const [failMsg,     setFailMsg]     = useState('')
+  const [isDragging,  setIsDragging]  = useState(false)
+  const [copied,      setCopied]      = useState(false)
 
-  const fileInputRef = useRef(null)
+  const inputRef = useRef(null)
 
-  function processFile(file) {
-    if (!file) return
-    setUploadStatus('idle')
-    setAccessCode('')
-    setExpiresAt(null)
-    setUploadError(null)
-    setCopied(false)
-    setSelectedFile(file)
-    const result = validateFile(file)
-    setValidationError(result.valid ? null : { error: result.error, hint: result.hint })
+  function pick(f) {
+    if (!f) return
+    setStatus('idle'); setAccessCode(''); setExpiresAt(null); setFailMsg(''); setCopied(false)
+    setFile(f)
+    const v = validateFile(f)
+    setError(v.valid ? null : { message: v.error, hint: v.hint })
   }
 
-  function handleFileChange(e)  { processFile(e.target.files[0]) }
-  function handleDragOver(e)    { e.preventDefault(); setIsDragging(true) }
-  function handleDrop(e)        { e.preventDefault(); setIsDragging(false); processFile(e.dataTransfer.files[0]) }
-  function handleDragLeave(e)   {
-    if (!e.currentTarget.contains(e.relatedTarget)) setIsDragging(false)
+  function dropzoneClass() {
+    if (isDragging)          return 'dropzone dropzone--dragging'
+    if (error && file)       return 'dropzone dropzone--invalid'
+    if (file && !error)      return 'dropzone dropzone--valid'
+    return 'dropzone'
   }
 
-  function handleRemoveFile() {
-    setSelectedFile(null); setValidationError(null); setUploadStatus('idle')
-    setAccessCode(''); setExpiresAt(null); setUploadError(null); setCopied(false)
-    if (fileInputRef.current) fileInputRef.current.value = ''
+  function remove(e) {
+    e.stopPropagation()
+    setFile(null); setError(null); setStatus('idle')
+    setAccessCode(''); setExpiresAt(null); setFailMsg(''); setCopied(false)
+    if (inputRef.current) inputRef.current.value = ''
   }
 
-  async function handleUpload() {
-    if (!selectedFile || validationError) return
-    setUploadStatus('uploading')
-    setUploadError(null)
+  async function upload() {
+    if (!file || error) return
+    setStatus('uploading')
     try {
-      const data = await uploadFile(selectedFile)
+      const data = await uploadFile(file)
       setAccessCode(data.accessCode)
       setExpiresAt(data.expiresAt)
-      setUploadStatus('success')
-    } catch (err) {
-      setUploadError(err.message)
-      setUploadStatus('error')
+      setStatus('success')
+    } catch (e) {
+      setFailMsg(e.message)
+      setStatus('fail')
     }
   }
 
-  function handleCopy() {
+  function copy() {
     navigator.clipboard?.writeText(accessCode)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const isButtonDisabled = !selectedFile || !!validationError || uploadStatus === 'uploading'
-  const isFileValid      = selectedFile && !validationError
-
-  function dropzoneClass() {
-    if (isDragging)                      return 'dropzone dropzone--dragging'
-    if (validationError && selectedFile) return 'dropzone dropzone--invalid'
-    if (isFileValid)                     return 'dropzone dropzone--valid'
-    return 'dropzone'
-  }
-
-  function formatExpiry(iso) {
-    if (!iso) return ''
-    return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
-  }
-
   return (
-    <section className="panel" aria-label="Upload a file">
-      <div className="panel__header">
-        <div className="panel__title-group">
-          <h2 className="panel__title">Share a File</h2>
-          <p className="panel__subtitle">Upload and get a 6-character access code</p>
-        </div>
-        <div className="panel__icon-wrap panel__icon-wrap--upload" aria-hidden="true">📤</div>
+    <div className="card">
+      <div>
+        <p className="card__title">Upload a file</p>
+        <p className="card__desc">Max 25 MB — file auto-expires in 24 h</p>
       </div>
 
       {/* Drop zone */}
       <div
         className={dropzoneClass()}
-        onClick={() => fileInputRef.current?.click()}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
+        onClick={() => inputRef.current?.click()}
+        onDragOver={e => { e.preventDefault(); setIsDragging(true) }}
+        onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setIsDragging(false) }}
+        onDrop={e => { e.preventDefault(); setIsDragging(false); pick(e.dataTransfer.files[0]) }}
         role="button"
         tabIndex={0}
-        aria-label="Click or drag a file here to upload"
-        onKeyDown={(e) => e.key === 'Enter' && fileInputRef.current?.click()}
+        aria-label="Click or drag a file here"
+        onKeyDown={e => e.key === 'Enter' && inputRef.current?.click()}
       >
         <input
-          ref={fileInputRef}
+          ref={inputRef}
           type="file"
           accept={ACCEPT_STRING}
-          onChange={handleFileChange}
+          onChange={e => pick(e.target.files[0])}
           style={{ display: 'none' }}
           aria-hidden="true"
         />
 
-        {selectedFile ? (
+        {file ? (
           <div className="file-preview">
-            <span className="file-preview__icon" aria-hidden="true">
-              {getFileIcon(selectedFile.type)}
-            </span>
-            <div className="file-preview__info">
-              <p className="file-preview__name" title={selectedFile.name}>{selectedFile.name}</p>
-              <p className="file-preview__meta">
-                {formatBytes(selectedFile.size)} · {getReadableType(selectedFile.type)}
-              </p>
+            <span aria-hidden="true">{getFileIcon(file.type)}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p className="file-preview__name" title={file.name}>{file.name}</p>
+              <p className="file-preview__meta">{formatBytes(file.size)}</p>
             </div>
-            <button
-              className="file-preview__remove"
-              onClick={(e) => { e.stopPropagation(); handleRemoveFile() }}
-              aria-label={`Remove ${selectedFile.name}`}
-            >✕</button>
+            <button className="file-preview__remove" onClick={remove} aria-label="Remove file">✕</button>
           </div>
         ) : (
-          <div className="dropzone__invite">
-            <span className="dropzone__icon" aria-hidden="true">
-              {isDragging ? '📂' : '📁'}
-            </span>
-            <p className="dropzone__primary">
-              {isDragging ? 'Drop it here!' : 'Click to browse or drag & drop'}
-            </p>
-            <p className="dropzone__secondary">
-              Images, PDFs, Word, Excel, code files, ZIPs — up to 25 MB
-            </p>
+          <div>
+            <p className="dropzone__text">{isDragging ? 'Drop file here' : 'Click to browse or drag & drop'}</p>
+            <p className="dropzone__hint">Images, PDFs, documents, code, ZIP — up to 25 MB</p>
           </div>
         )}
       </div>
 
       {/* Validation error */}
-      {validationError && (
-        <div className="validation-error" role="alert" aria-live="polite">
-          <span className="validation-error__icon" aria-hidden="true">⚠️</span>
-          <div className="validation-error__body">
-            <p className="validation-error__message">{validationError.error}</p>
-            {validationError.hint && (
-              <p className="validation-error__hint">{validationError.hint}</p>
-            )}
-          </div>
+      {error && (
+        <div className="error-banner" role="alert">
+          <p>{error.message}</p>
+          {error.hint && <p className="error-banner__hint">{error.hint}</p>}
         </div>
       )}
 
       {/* Upload button */}
       <button
         className="btn btn--primary btn--full"
-        onClick={handleUpload}
-        disabled={isButtonDisabled}
-        aria-busy={uploadStatus === 'uploading'}
+        onClick={upload}
+        disabled={!file || !!error || status === 'uploading'}
+        aria-busy={status === 'uploading'}
       >
-        {uploadStatus === 'uploading'
-          ? <><span className="spinner" aria-hidden="true" /> Encrypting & uploading…</>
-          : '⬆ Upload & Get Code'
+        {status === 'uploading'
+          ? <><span className="spinner" aria-hidden="true" /> Uploading…</>
+          : 'Upload & get code'
         }
       </button>
 
       {/* Success */}
-      {uploadStatus === 'success' && (
-        <div className="result-box result-box--success" role="status" aria-live="polite">
-          <p className="result-box__label">Your access code</p>
-          <p className="result-box__code" aria-label={`Access code: ${accessCode}`}>
-            {accessCode}
+      {status === 'success' && (
+        <div className="result result--success" role="status" aria-live="polite">
+          <p className="result__label">Your access code</p>
+          <p className="result__code" aria-label={`Access code: ${accessCode}`}>{accessCode}</p>
+          <p className="result__hint">
+            Share this code. Expires {expiresAt ? new Date(expiresAt).toLocaleString() : 'in 24 hours'}.
           </p>
-          <p className="result-box__hint">
-            Share this code with anyone. Expires <strong>{formatExpiry(expiresAt)}</strong>.
-          </p>
-          <div className="result-box__actions">
-            <button className="btn btn--accent btn--full" onClick={handleCopy} aria-live="polite">
-              {copied ? '✓ Copied!' : '📋 Copy Code'}
-            </button>
-          </div>
+          <button className="btn btn--outline" onClick={copy}>
+            {copied ? 'Copied!' : 'Copy code'}
+          </button>
         </div>
       )}
 
-      {/* Upload error */}
-      {uploadStatus === 'error' && (
-        <div className="result-box result-box--error" role="alert">
-          <p>{uploadError || 'Upload failed. Please try again.'}</p>
+      {/* Fail */}
+      {status === 'fail' && (
+        <div className="result result--error" role="alert">
+          <p className="result__error-msg">{failMsg || 'Upload failed. Please try again.'}</p>
         </div>
       )}
 
-      {/* Security badges */}
-      <div className="security-strip" aria-label="Security features">
-        {['E2E Encrypted', 'No Login', 'Auto-Expires', 'Private S3'].map(label => (
-          <div className="security-strip__badge" key={label}>
-            <span className="security-strip__dot" aria-hidden="true" />
-            {label}
-          </div>
+      {/* Info */}
+      <div className="info-strip" aria-label="Security info">
+        {['Encrypted at rest', 'No account needed', 'Auto-deleted'].map(t => (
+          <span className="info-strip__tag" key={t}>{t}</span>
         ))}
       </div>
-    </section>
+    </div>
   )
 }
 

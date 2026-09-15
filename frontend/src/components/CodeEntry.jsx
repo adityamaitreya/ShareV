@@ -2,79 +2,71 @@ import { useState } from 'react'
 import { retrieveFile } from '../services/api'
 import { formatBytes, getFileIcon } from '../utils/fileValidation'
 
-function isValidCode(code) {
+function isValid(code) {
   return /^[A-Z0-9]{6}$/.test(code)
 }
 
 function CodeEntry() {
-  const [code,     setCode]     = useState('')
-  const [status,   setStatus]   = useState('idle')  // idle | loading | found | not-found | expired | error
-  const [fileInfo, setFileInfo] = useState(null)
-  const [apiError, setApiError] = useState(null)
+  const [code,    setCode]    = useState('')
+  const [status,  setStatus]  = useState('idle') // idle | loading | found | notfound | expired | error
+  const [info,    setInfo]    = useState(null)
+  const [errMsg,  setErrMsg]  = useState('')
 
-  function handleChange(e) {
-    const cleaned = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6)
-    setCode(cleaned)
-    if (status !== 'idle') { setStatus('idle'); setFileInfo(null); setApiError(null) }
+  function change(e) {
+    const v = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6)
+    setCode(v)
+    if (status !== 'idle') { setStatus('idle'); setInfo(null); setErrMsg('') }
   }
 
-  async function handleAccess() {
-    if (!isValidCode(code)) return
+  async function access() {
+    if (!isValid(code)) return
     setStatus('loading')
-    setApiError(null)
     try {
       const data = await retrieveFile(code)
-      setFileInfo(data)
+      setInfo(data)
       setStatus('found')
-    } catch (err) {
-      if (err.message.includes('not found'))  setStatus('not-found')
-      else if (err.message.includes('expired')) setStatus('expired')
-      else { setApiError(err.message); setStatus('error') }
+    } catch (e) {
+      if (e.message.includes('not found'))  setStatus('notfound')
+      else if (e.message.includes('expired')) setStatus('expired')
+      else { setErrMsg(e.message); setStatus('error') }
     }
   }
 
-  function handleKeyDown(e) {
-    if (e.key === 'Enter') handleAccess()
-  }
-
-  function handleDownload() {
-    if (!fileInfo?.url) return
+  function download() {
+    if (!info?.url) return
     const a = document.createElement('a')
-    a.href = fileInfo.url
-    a.download = fileInfo.fileName
+    a.href = info.url
+    a.download = info.fileName
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
   }
 
   return (
-    <section className="panel" aria-label="Retrieve a shared file">
-      <div className="panel__header">
-        <div className="panel__title-group">
-          <h2 className="panel__title">Receive a File</h2>
-          <p className="panel__subtitle">Enter your 6-character code to download</p>
-        </div>
-        <div className="panel__icon-wrap panel__icon-wrap--retrieve" aria-hidden="true">🔑</div>
+    <div className="card">
+      <div>
+        <p className="card__title">Receive a file</p>
+        <p className="card__desc">Enter the 6-character code to download</p>
       </div>
 
       {/* Code input */}
-      <div className="code-input-row">
+      <div className="code-row">
         <input
           className="code-input"
           type="text"
           value={code}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
+          onChange={change}
+          onKeyDown={e => e.key === 'Enter' && access()}
           placeholder="AB12CD"
           maxLength={6}
-          aria-label="Enter 6-character access code"
+          aria-label="Enter access code"
           autoComplete="off"
           spellCheck={false}
         />
         <button
           className="btn btn--primary"
-          onClick={handleAccess}
-          disabled={!isValidCode(code) || status === 'loading'}
+          onClick={access}
+          disabled={!isValid(code) || status === 'loading'}
           aria-busy={status === 'loading'}
         >
           {status === 'loading'
@@ -84,84 +76,54 @@ function CodeEntry() {
         </button>
       </div>
 
-      <p className="code-hint" aria-live="polite">
-        {code.length}/6 characters
-        {code.length > 0 && code.length < 6 && ' — keep typing'}
-        {code.length === 6 && isValidCode(code) && ' — press Access or Enter'}
-      </p>
+      <p className="code-hint" aria-live="polite">{code.length}/6</p>
 
-      {/* How it works strip */}
-      {status === 'idle' && (
-        <div className="security-strip" aria-label="How it works">
-          {[
-            { icon: '1️⃣', label: 'Enter code' },
-            { icon: '2️⃣', label: 'Verify & decrypt' },
-            { icon: '3️⃣', label: 'Download file' },
-          ].map(({ icon, label }) => (
-            <div className="security-strip__badge" key={label}>
-              <span aria-hidden="true">{icon}</span>
-              {label}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* File found */}
-      {status === 'found' && fileInfo && (
-        <div className="result-box result-box--success" role="status" aria-live="polite">
-          <p className="result-box__label">✓ File found</p>
-          <div className="file-preview file-preview--result">
-            <span className="file-preview__icon" aria-hidden="true">
-              {getFileIcon(fileInfo.contentType)}
-            </span>
-            <div className="file-preview__info">
-              <p className="file-preview__name">{fileInfo.fileName}</p>
-              <p className="file-preview__meta">
-                {formatBytes(fileInfo.fileSize)} · Expires {new Date(fileInfo.expiresAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
-              </p>
-            </div>
+      {/* Found */}
+      {status === 'found' && info && (
+        <div className="result result--success" role="status" aria-live="polite">
+          <p className="result__label">File found</p>
+          <div className="result__file">
+            <p className="result__file-name">
+              {getFileIcon(info.contentType)} {info.fileName}
+            </p>
+            <p className="result__file-meta">
+              {formatBytes(info.fileSize)} · expires {new Date(info.expiresAt).toLocaleString()}
+            </p>
           </div>
-          <button
-            className="btn btn--accent btn--full"
-            onClick={handleDownload}
-            aria-label={`Download ${fileInfo.fileName}`}
-          >
-            ⬇ Download File
+          <button className="btn btn--primary btn--full" onClick={download}>
+            Download file
           </button>
         </div>
       )}
 
       {/* Not found */}
-      {status === 'not-found' && (
-        <div className="result-box result-box--error" role="alert">
-          <p><strong>Code not found.</strong> Double-check the code and try again.</p>
+      {status === 'notfound' && (
+        <div className="result result--error" role="alert">
+          <p className="result__error-msg">Code not found. Check and try again.</p>
         </div>
       )}
 
       {/* Expired */}
       {status === 'expired' && (
-        <div className="result-box result-box--warning" role="alert">
-          <p><strong>This link has expired.</strong> Ask the sender to share a new one.</p>
+        <div className="result result--warning" role="alert">
+          <p className="result__warning-msg">This link has expired.</p>
         </div>
       )}
 
       {/* Error */}
       {status === 'error' && (
-        <div className="result-box result-box--error" role="alert">
-          <p>{apiError || 'Something went wrong. Please try again.'}</p>
+        <div className="result result--error" role="alert">
+          <p className="result__error-msg">{errMsg || 'Something went wrong. Try again.'}</p>
         </div>
       )}
 
-      {/* Security info */}
-      <div className="security-strip" aria-label="Security info">
-        {['Pre-signed URL', '15min Download Link', 'AES-256', 'Zero Logging'].map(label => (
-          <div className="security-strip__badge" key={label}>
-            <span className="security-strip__dot" aria-hidden="true" />
-            {label}
-          </div>
+      {/* Info */}
+      <div className="info-strip" aria-label="Security info">
+        {['Pre-signed URL', '15 min download link', 'AES-256'].map(t => (
+          <span className="info-strip__tag" key={t}>{t}</span>
         ))}
       </div>
-    </section>
+    </div>
   )
 }
 
